@@ -1,0 +1,69 @@
+name: Build (Windows)
+
+on:
+  push:
+    paths:
+      - 'nlm.ispc'
+      - 'vsnlm.cpp'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    outputs:
+      runID: ${{ steps.output.outputs.runID }}
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Download VapourSynth headers
+      run: |
+        curl -s -o vs.zip -L https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R57.zip
+        unzip -q vs.zip
+        mv vapoursynth-*/ vapoursynth/
+
+    - name: Download ISPC
+      run: |
+        curl -s -o ispc.zip -LJO https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-windows.zip
+        unzip -q ispc.zip
+        mv ispc-*/ ispc/
+        tree ispc
+
+    - name: Configure
+      shell: bash
+      run: cmake -S . -B build -G Ninja
+        -D VS_INCLUDE_DIR="$(pwd)\vapoursynth\include"
+        -D CMAKE_BUILD_TYPE=Release
+        -D CMAKE_CXX_COMPILER="clang++"
+        -D CMAKE_CXX_FLAGS="-Wall"
+        -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc.exe"
+        -D CMAKE_ISPC_FLAGS="--opt=fast-math"
+        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8"
+        -D CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
+    - name: Build
+      run: cmake --build build --verbose
+
+    - name: Install
+      run: |
+        cmake --install build --prefix install
+        mkdir artifact
+        copy install\bin\vsnlm_ispc.dll artifact\
+
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: Windows-x64
+        path: artifact
+
