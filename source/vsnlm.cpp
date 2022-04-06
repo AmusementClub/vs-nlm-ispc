@@ -589,8 +589,8 @@ static void VS_CC nlmCreate(
     }
 
     if (d->channels == ChannelMode::Y) {
-        if (d->vi->format->id != pfGrayS && d->vi->format->id != pfYUV444PS) {
-            return set_error("format must be GrayS or YUV444PS for \"channels\" == \"Y\"");
+        if (d->vi->format->colorFamily != cmGray && d->vi->format->colorFamily != cmYUV) {
+            return set_error("color family must be Gray or YUV for \"channels\" == \"Y\"");
         }
     } else if (d->channels == ChannelMode::UV) {
         if (d->vi->format->id != pfYUV444PS) {
