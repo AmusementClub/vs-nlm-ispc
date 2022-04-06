@@ -3,8 +3,8 @@ name: Build (Windows)
 on:
   push:
     paths:
-      - 'nlm.ispc'
-      - 'vsnlm.cpp'
+      - 'source/nlm.ispc'
+      - 'source/vsnlm.cpp'
       - '.github/workflows/windows.yml'
   workflow_dispatch:
 
