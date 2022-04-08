@@ -315,7 +315,8 @@ static const VSFrameRef *VS_CC nlmGetFrame(
         d->workspaces_lock.lock_shared();
         bool init = true;
         try {
-            workspace = d->workspaces.at(thread_id);
+            const auto & const_workspaces = d->workspaces;
+            workspace = const_workspaces.at(thread_id);
         } catch (const std::out_of_range &) {
             init = false;
         }
