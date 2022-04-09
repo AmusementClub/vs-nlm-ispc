@@ -770,7 +770,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
         if (!init) {
             auto workspace_size = size * (4 + num_input_channels + (nlm_d != 0)) + width;
             auto workspace_bytes = workspace_size * sizeof(float);
-            workspace = (float *) std::aligned_alloc(256, workspace_bytes);
+            workspace = vs_aligned_malloc<float>(workspace_bytes, 256);
 
             if (!workspace) {
                 vsapi->freeFrame(ref_frame);
@@ -934,7 +934,7 @@ static void VS_CC nlmFree(
     }
 
     for (const auto & [_, ptr] : d->workspaces) {
-        std::free(ptr);
+        vs_aligned_free(ptr);
     }
 
     delete d;
