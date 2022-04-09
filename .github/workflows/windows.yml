@@ -71,6 +71,9 @@ jobs:
         name: Windows-x64
         path: artifact
 
+    - name: Describe
+      run: git describe --tags --long
+
     - name: Compress artifact for release
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
       run: |
