@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -42,12 +44,21 @@ struct NLMData {
 }
 
 template <typename T>
-static inline auto castFPtr(T * p) noexcept {
+static inline auto castVoidPtr(T * p) noexcept {
     if constexpr (std::is_const_v<T>) {
-        return reinterpret_cast<const float *>(p);
+        return reinterpret_cast<const void *>(p);
     } else {
-        return reinterpret_cast<float *>(p);
+        return reinterpret_cast<void *>(p);
     }
+}
+
+template <typename T1, typename T2>
+static inline std::array<T1 *, 3> castPtrs(std::array<T2 *, 3> ptrs) {
+    return {
+        (T1 *) ptrs[0],
+        (T1 *) ptrs[1],
+        (T1 *) ptrs[2],
+    };
 }
 
 template <typename T>
@@ -63,15 +74,15 @@ static inline auto getPtrs(
     const VSAPI * vsapi
 ) noexcept {
 
-    using value_type = std::conditional_t<std::is_const_v<T>, const float, float>;
+    using value_type = std::conditional_t<std::is_const_v<T>, const void, void>;
 
     std::array<value_type *, 3> ptrs {};
 
     auto get_ptr = [frame, vsapi](int plane) {
         if constexpr (std::is_const_v<T>) {
-            return castFPtr(vsapi->getReadPtr(frame, plane));
+            return castVoidPtr(vsapi->getReadPtr(frame, plane));
         } else {
-            return castFPtr(vsapi->getWritePtr(frame, plane));
+            return castVoidPtr(vsapi->getWritePtr(frame, plane));
         }
     };
 
@@ -107,7 +118,7 @@ static void VS_CC nlmInit(
     vsapi->setVideoInfo(vsapi->getVideoInfo(d->node), 1, node);
 }
 
-static inline void nlmDistance(
+static inline void nlmDistanceDispatch_f32(
     float * temp0,
     std::array<const float *, 3> centerp,
     std::array<const float *, 3> neighborp,
@@ -118,9 +129,10 @@ static inline void nlmDistance(
     int stride,
     ChannelMode channels
 ) noexcept {
+
     switch (channels) {
         case ChannelMode::Y:
-            ispc::nlmDistanceLuma(
+            ispc::nlmDistanceLuma_f32(
                 temp0,
                 centerp[0],
                 neighborp[0],
@@ -129,7 +141,7 @@ static inline void nlmDistance(
             );
             break;
         case ChannelMode::UV:
-            ispc::nlmDistanceChroma(
+            ispc::nlmDistanceChroma_f32(
                 temp0,
                 centerp[1], centerp[2],
                 neighborp[1], neighborp[2],
@@ -138,7 +150,7 @@ static inline void nlmDistance(
             );
             break;
         case ChannelMode::YUV:
-            ispc::nlmDistanceYUV(
+            ispc::nlmDistanceYUV_f32(
                 temp0,
                 centerp[0], centerp[1], centerp[2],
                 neighborp[0], neighborp[1], neighborp[2],
@@ -147,7 +159,7 @@ static inline void nlmDistance(
             );
             break;
         case ChannelMode::RGB:
-            ispc::nlmDistanceRGB(
+            ispc::nlmDistanceRGB_f32(
                 temp0,
                 centerp[0], centerp[1], centerp[2],
                 neighborp[0], neighborp[1], neighborp[2],
@@ -158,7 +170,162 @@ static inline void nlmDistance(
     }
 }
 
-static inline void nlmAccumulation(
+static inline void nlmDistanceDispatch_u8(
+    float * temp0,
+    std::array<const uint8_t *, 3> centerp,
+    std::array<const uint8_t *, 3> neighborp,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    float inv_divisor
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmDistanceLuma_u8(
+                temp0,
+                centerp[0],
+                neighborp[0],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmDistanceChroma_u8(
+                temp0,
+                centerp[1], centerp[2],
+                neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::YUV:
+            ispc::nlmDistanceYUV_u8(
+                temp0,
+                centerp[0], centerp[1], centerp[2],
+                neighborp[0], neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::RGB:
+            ispc::nlmDistanceRGB_u8(
+                temp0,
+                centerp[0], centerp[1], centerp[2],
+                neighborp[0], neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+    }
+}
+
+static inline void nlmDistanceDispatch_u16(
+    float * temp0,
+    std::array<const uint16_t *, 3> centerp,
+    std::array<const uint16_t *, 3> neighborp,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    float inv_divisor
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmDistanceLuma_u16(
+                temp0,
+                centerp[0],
+                neighborp[0],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmDistanceChroma_u16(
+                temp0,
+                centerp[1], centerp[2],
+                neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::YUV:
+            ispc::nlmDistanceYUV_u16(
+                temp0,
+                centerp[0], centerp[1], centerp[2],
+                neighborp[0], neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+        case ChannelMode::RGB:
+            ispc::nlmDistanceRGB_u16(
+                temp0,
+                centerp[0], centerp[1], centerp[2],
+                neighborp[0], neighborp[1], neighborp[2],
+                offset_x, offset_y,
+                width, height, stride,
+                inv_divisor
+            );
+            break;
+    }
+}
+
+static inline void nlmDistance(
+    float * temp0,
+    std::array<const void *, 3> centerp,
+    std::array<const void *, 3> neighborp,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    int bits
+) noexcept {
+
+    if (bits == 32) {
+        nlmDistanceDispatch_f32(
+            temp0,
+            castPtrs<const float>(centerp), castPtrs<const float>(neighborp),
+            offset_x, offset_y,
+            width, height, stride, channels
+        );
+    } else if (bits <= 8) {
+        float inv_divisor = 1.0f / ((1 << bits) - 1);
+        nlmDistanceDispatch_u8(
+            temp0,
+            castPtrs<const uint8_t>(centerp), castPtrs<const uint8_t>(neighborp),
+            offset_x, offset_y,
+            width, height, stride, channels, inv_divisor
+        );
+    } else if (bits <= 16) {
+        float inv_divisor = 1.0f / ((1 << bits) - 1);
+        nlmDistanceDispatch_u16(
+            temp0,
+            castPtrs<const uint16_t>(centerp), castPtrs<const uint16_t>(neighborp),
+            offset_x, offset_y,
+            width, height, stride, channels, inv_divisor
+        );
+    } else {
+        assert(false);
+    }
+}
+
+static inline void nlmAccumulationDispatch_f32(
     float * weightp,
     std::array<float *, 3> wdstp,
     float * max_weightp,
@@ -172,10 +339,11 @@ static inline void nlmAccumulation(
     int height,
     int stride,
     ChannelMode channels
-) {
+) noexcept {
+
     switch (channels) {
         case ChannelMode::Y:
-            ispc::nlmAccumulationCh1(
+            ispc::nlmAccumulationCh1_f32(
                 weightp, wdstp[0], max_weightp,
                 srcp_bwd[0],
                 srcp_fwd[0],
@@ -185,7 +353,7 @@ static inline void nlmAccumulation(
             );
             break;
         case ChannelMode::UV:
-            ispc::nlmAccumulationCh2(
+            ispc::nlmAccumulationCh2_f32(
                 weightp, wdstp[0], wdstp[1], max_weightp,
                 srcp_bwd[1], srcp_bwd[2],
                 srcp_fwd[1], srcp_fwd[2],
@@ -196,7 +364,7 @@ static inline void nlmAccumulation(
             break;
         case ChannelMode::YUV:
         case ChannelMode::RGB:
-            ispc::nlmAccumulationCh3(
+            ispc::nlmAccumulationCh3_f32(
                 weightp, wdstp[0], wdstp[1], wdstp[2], max_weightp,
                 srcp_bwd[0], srcp_bwd[1], srcp_bwd[2],
                 srcp_fwd[0], srcp_fwd[1], srcp_fwd[2],
@@ -208,7 +376,149 @@ static inline void nlmAccumulation(
     }
 }
 
-static inline void nlmFinish(
+static inline void nlmAccumulationDispatch_u8(
+    float * weightp,
+    std::array<float *, 3> wdstp,
+    float * max_weightp,
+    std::array<const uint8_t *, 3> srcp_bwd,
+    std::array<const uint8_t *, 3> srcp_fwd,
+    const float * temp_bwd,
+    const float * temp_fwd,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmAccumulationCh1_u8(
+                weightp, wdstp[0], max_weightp,
+                srcp_bwd[0],
+                srcp_fwd[0],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmAccumulationCh2_u8(
+                weightp, wdstp[0], wdstp[1], max_weightp,
+                srcp_bwd[1], srcp_bwd[2],
+                srcp_fwd[1], srcp_fwd[2],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+        case ChannelMode::YUV:
+        case ChannelMode::RGB:
+            ispc::nlmAccumulationCh3_u8(
+                weightp, wdstp[0], wdstp[1], wdstp[2], max_weightp,
+                srcp_bwd[0], srcp_bwd[1], srcp_bwd[2],
+                srcp_fwd[0], srcp_fwd[1], srcp_fwd[2],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+    }
+}
+
+static inline void nlmAccumulationDispatch_u16(
+    float * weightp,
+    std::array<float *, 3> wdstp,
+    float * max_weightp,
+    std::array<const uint16_t *, 3> srcp_bwd,
+    std::array<const uint16_t *, 3> srcp_fwd,
+    const float * temp_bwd,
+    const float * temp_fwd,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmAccumulationCh1_u16(
+                weightp, wdstp[0], max_weightp,
+                srcp_bwd[0],
+                srcp_fwd[0],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmAccumulationCh2_u16(
+                weightp, wdstp[0], wdstp[1], max_weightp,
+                srcp_bwd[1], srcp_bwd[2],
+                srcp_fwd[1], srcp_fwd[2],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+        case ChannelMode::YUV:
+        case ChannelMode::RGB:
+            ispc::nlmAccumulationCh3_u16(
+                weightp, wdstp[0], wdstp[1], wdstp[2], max_weightp,
+                srcp_bwd[0], srcp_bwd[1], srcp_bwd[2],
+                srcp_fwd[0], srcp_fwd[1], srcp_fwd[2],
+                temp_bwd, temp_fwd,
+                offset_x, offset_y,
+                width, height, stride
+            );
+            break;
+    }
+}
+
+static inline void nlmAccumulation(
+    float * weightp,
+    std::array<float *, 3> wdstp,
+    float * max_weightp,
+    std::array<const void *, 3> srcp_bwd,
+    std::array<const void *, 3> srcp_fwd,
+    const float * temp_bwd,
+    const float * temp_fwd,
+    int offset_x,
+    int offset_y,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    int bits
+) noexcept {
+
+    if (bits == 32) {
+        nlmAccumulationDispatch_f32(
+            weightp, wdstp, max_weightp,
+            castPtrs<const float>(srcp_bwd), castPtrs<const float>(srcp_bwd), temp_bwd, temp_bwd,
+            offset_x, offset_y, width, height, stride, channels
+        );
+    } else if (bits <= 8) {
+        nlmAccumulationDispatch_u8(
+            weightp, wdstp, max_weightp,
+            castPtrs<const uint8_t>(srcp_bwd), castPtrs<const uint8_t>(srcp_bwd), temp_bwd, temp_bwd,
+            offset_x, offset_y, width, height, stride, channels
+        );
+    } else if (bits <= 16) {
+        nlmAccumulationDispatch_u16(
+            weightp, wdstp, max_weightp,
+            castPtrs<const uint16_t>(srcp_bwd), castPtrs<const uint16_t>(srcp_bwd), temp_bwd, temp_bwd,
+            offset_x, offset_y, width, height, stride, channels
+        );
+    } else {
+        assert(false);
+    }
+}
+
+static inline void nlmFinishDispatch_f32(
     std::array<float *, 3> dstp,
     std::array<const float *, 3> srcp,
     const float * weightp,
@@ -223,7 +533,7 @@ static inline void nlmFinish(
 
     switch (channels) {
         case ChannelMode::Y:
-            ispc::nlmFinishCh1(
+            ispc::nlmFinishCh1_f32(
                 dstp[0],
                 srcp[0],
                 weightp, wdstp[0],
@@ -232,7 +542,7 @@ static inline void nlmFinish(
             );
             break;
         case ChannelMode::UV:
-            ispc::nlmFinishCh2(
+            ispc::nlmFinishCh2_f32(
                 dstp[1], dstp[2],
                 srcp[1], srcp[2],
                 weightp, wdstp[0], wdstp[1],
@@ -242,7 +552,7 @@ static inline void nlmFinish(
             break;
         case ChannelMode::YUV:
         case ChannelMode::RGB:
-            ispc::nlmFinishCh3(
+            ispc::nlmFinishCh3_f32(
                 dstp[0], dstp[1], dstp[2],
                 srcp[0], srcp[1], srcp[2],
                 weightp, wdstp[0], wdstp[1], wdstp[2],
@@ -250,6 +560,140 @@ static inline void nlmFinish(
                 width, height, stride
             );
             break;
+    }
+}
+
+static inline void nlmFinishDispatch_u8(
+    std::array<uint8_t *, 3> dstp,
+    std::array<const uint8_t *, 3> srcp,
+    const float * weightp,
+    std::array<float *, 3> wdstp,
+    const float * max_weightp,
+    float wref,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    int peak
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmFinishCh1_u8(
+                dstp[0],
+                srcp[0],
+                weightp, wdstp[0],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmFinishCh2_u8(
+                dstp[1], dstp[2],
+                srcp[1], srcp[2],
+                weightp, wdstp[0], wdstp[1],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+        case ChannelMode::YUV:
+        case ChannelMode::RGB:
+            ispc::nlmFinishCh3_u8(
+                dstp[0], dstp[1], dstp[2],
+                srcp[0], srcp[1], srcp[2],
+                weightp, wdstp[0], wdstp[1], wdstp[2],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+    }
+}
+
+static inline void nlmFinishDispatch_u16(
+    std::array<uint16_t *, 3> dstp,
+    std::array<const uint16_t *, 3> srcp,
+    const float * weightp,
+    std::array<float *, 3> wdstp,
+    const float * max_weightp,
+    float wref,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    int peak
+) noexcept {
+
+    switch (channels) {
+        case ChannelMode::Y:
+            ispc::nlmFinishCh1_u16(
+                dstp[0],
+                srcp[0],
+                weightp, wdstp[0],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+        case ChannelMode::UV:
+            ispc::nlmFinishCh2_u16(
+                dstp[1], dstp[2],
+                srcp[1], srcp[2],
+                weightp, wdstp[0], wdstp[1],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+        case ChannelMode::YUV:
+        case ChannelMode::RGB:
+            ispc::nlmFinishCh3_u16(
+                dstp[0], dstp[1], dstp[2],
+                srcp[0], srcp[1], srcp[2],
+                weightp, wdstp[0], wdstp[1], wdstp[2],
+                max_weightp, wref,
+                width, height, stride,
+                peak
+            );
+            break;
+    }
+}
+
+static inline void nlmFinish(
+    std::array<void *, 3> dstp,
+    std::array<const void *, 3> srcp,
+    const float * weightp,
+    std::array<float *, 3> wdstp,
+    const float * max_weightp,
+    float wref,
+    int width,
+    int height,
+    int stride,
+    ChannelMode channels,
+    int bits
+) noexcept {
+
+    if (bits == 32) {
+        nlmFinishDispatch_f32(
+            castPtrs<float>(dstp), castPtrs<const float>(srcp),
+            weightp, wdstp, max_weightp, wref, width, height, stride, channels
+        );
+    } else if (bits <= 8) {
+        int peak = (1 << bits) - 1;
+        nlmFinishDispatch_u8(
+            castPtrs<uint8_t>(dstp), castPtrs<const uint8_t>(srcp),
+            weightp, wdstp, max_weightp, wref, width, height, stride, channels, peak
+        );
+    } else if (bits <= 16) {
+        int peak = (1 << bits) - 1;
+        nlmFinishDispatch_u16(
+            castPtrs<uint16_t>(dstp), castPtrs<const uint16_t>(srcp),
+            weightp, wdstp, max_weightp, wref, width, height, stride, channels, peak
+        );
+    } else {
+        assert(false);
     }
 }
 
@@ -294,7 +738,8 @@ static const VSFrameRef *VS_CC nlmGetFrame(
     // no need to handle subsampling
     int width = d->vi->width;
     int height = d->vi->height;
-    int stride = vsapi->getStride(ref_frame, 0) / sizeof(float);
+    int bits = d->vi->format->bitsPerSample;
+    int stride = vsapi->getStride(ref_frame, 0) / d->vi->format->bytesPerSample;
 
     int size = height * stride; // size of each plane in quad-bytes
     // number of input channels
@@ -325,7 +770,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
         if (!init) {
             auto workspace_size = size * (4 + num_input_channels + (nlm_d != 0)) + width;
             auto workspace_bytes = workspace_size * sizeof(float);
-            workspace = castFPtr(std::malloc(workspace_bytes));
+            workspace = (float *) std::aligned_alloc(256, workspace_bytes);
 
             if (!workspace) {
                 vsapi->freeFrame(ref_frame);
@@ -390,7 +835,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
                 nlmDistance(
                     temp_bwd,
                     refp, refp_bwd,
-                    offset_x, offset_y, width, height, stride, channels
+                    offset_x, offset_y, width, height, stride, channels, bits
                 );
 
                 ispc::nlmHorizontal(
@@ -411,7 +856,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
                     nlmAccumulation(
                         weightp, wdstp, max_weightp,
                         srcp_bwd, srcp_bwd, temp_bwd, temp_bwd,
-                        offset_x, offset_y, width, height, stride, channels
+                        offset_x, offset_y, width, height, stride, channels, bits
                     );
                     continue;
                 }
@@ -420,7 +865,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
                 nlmDistance(
                     temp_fwd,
                     refp_fwd, refp,
-                    offset_x, offset_y, width, height, stride, channels
+                    offset_x, offset_y, width, height, stride, channels, bits
                 );
 
                 ispc::nlmHorizontal(
@@ -438,7 +883,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
                 nlmAccumulation(
                     weightp, wdstp, max_weightp,
                     srcp_bwd, srcp_fwd, temp_bwd, temp_fwd,
-                    offset_x, offset_y, width, height, stride, channels
+                    offset_x, offset_y, width, height, stride, channels, bits
                 );
             }
         }
@@ -468,7 +913,7 @@ static const VSFrameRef *VS_CC nlmGetFrame(
     }
     std::array dstp { getPtrs(dst_frame, channels, vsapi) };
 
-    nlmFinish(dstp, srcp, weightp, wdstp, max_weightp, nlm_wref, width, height, stride, channels);
+    nlmFinish(dstp, srcp, weightp, wdstp, max_weightp, nlm_wref, width, height, stride, channels, bits);
 
     vsapi->freeFrame(src_frame);
 
@@ -513,8 +958,10 @@ static void VS_CC nlmCreate(
         vsapi->freeNode(d->node);
     };
 
-    if (d->vi->format->sampleType != stFloat || d->vi->format->bitsPerSample != 32) {
-        return set_error("only 32-bit float supported");
+    if ((d->vi->format->sampleType == stInteger && d->vi->format->bitsPerSample > 16) ||
+        (d->vi->format->sampleType == stFloat && d->vi->format->bitsPerSample != 32)
+     ) {
+        return set_error("only 1-16 bit integer or 32-bit float supported");
     }
 
     int err;
@@ -594,16 +1041,16 @@ static void VS_CC nlmCreate(
             return set_error("color family must be Gray or YUV for \"channels\" == \"Y\"");
         }
     } else if (d->channels == ChannelMode::UV) {
-        if (d->vi->format->id != pfYUV444PS) {
-            return set_error("format must be YUV444PS for \"channels\" == \"UV\"");
+        if (d->vi->format->colorFamily != cmYUV || d->vi->format->subSamplingW || d->vi->format->subSamplingH) {
+            return set_error("format must be YUV444 for \"channels\" == \"UV\"");
         }
     } else if (d->channels == ChannelMode::YUV) {
-        if (d->vi->format->id != pfYUV444PS) {
-            return set_error("format must be YUV444PS for \"channels\" == \"YUV\"");
+        if (d->vi->format->colorFamily != cmYUV || d->vi->format->subSamplingW || d->vi->format->subSamplingH) {
+            return set_error("color family must be YUV444 for \"channels\" == \"YUV\"");
         }
     } else if (d->channels == ChannelMode::RGB) {
-        if (d->vi->format->id != pfRGBS) {
-            return set_error("format must be RGBS for \"channels\" == \"RGB\"");
+        if (d->vi->format->colorFamily != cmRGB) {
+            return set_error("color family must be RGB for \"channels\" == \"RGB\"");
         }
     }
 
