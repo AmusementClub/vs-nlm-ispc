@@ -743,7 +743,7 @@ export void nlmDistanceRGB_u8(
             uniform float u1_pq_2 = neighborp2[neighbor_idx];
             uniform float u1_pq_3 = neighborp3[neighbor_idx];
 
-            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             uniform float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
@@ -765,7 +765,7 @@ export void nlmDistanceRGB_u8(
             float u1_pq_2 = neighborp2[neighbor_idx];
             float u1_pq_3 = neighborp3[neighbor_idx];
 
-            float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
@@ -787,7 +787,7 @@ export void nlmDistanceRGB_u8(
             uniform float u1_pq_2 = neighborp2[neighbor_idx];
             uniform float u1_pq_3 = neighborp3[neighbor_idx];
 
-            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             uniform float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
@@ -833,7 +833,7 @@ export void nlmDistanceRGB_u16(
             uniform float u1_pq_2 = neighborp2[neighbor_idx];
             uniform float u1_pq_3 = neighborp3[neighbor_idx];
 
-            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             uniform float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
@@ -855,7 +855,7 @@ export void nlmDistanceRGB_u16(
             float u1_pq_2 = neighborp2[neighbor_idx];
             float u1_pq_3 = neighborp3[neighbor_idx];
 
-            float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
@@ -877,7 +877,7 @@ export void nlmDistanceRGB_u16(
             uniform float u1_pq_2 = neighborp2[neighbor_idx];
             uniform float u1_pq_3 = neighborp3[neighbor_idx];
 
-            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f;
+            uniform float m_red = (u1_1 + u1_pq_1) / 6.0f * inv_divisor;
 
             uniform float dst = (
                 (2.0f / 3.0f + m_red) * square(u1_1 - u1_pq_1) +
