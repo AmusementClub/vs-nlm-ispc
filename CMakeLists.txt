@@ -37,6 +37,19 @@ if(NOT VS_FOUND)
     install(TARGETS vsnlm_ispc LIBRARY RUNTIME)
 endif()
 
+find_package(Git QUIET)
+
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --long --always
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_VARIABLE VCS_TAG
+    )
+    if(VCS_TAG)
+        string(STRIP ${VCS_TAG} VCS_TAG)
+    endif()
+endif()
+
 if(VCS_TAG)
     message(STATUS "vs-nlm-ispc ${VCS_TAG}")
 else()
