@@ -3,27 +3,10 @@ Non-local means denoise filter, drop-in replacement of the venerable [KNLMeansCL
 
 x86 and arm are supported.
 
-## Note
-The filter requires floating-point input. A simple wrapper could be
+## Usage
+Prototype:
 
-```python3
-import vapoursynth as vs
-
-def NLMeans(clip, d=1, a=2, s=4, h=1.2, channels="AUTO", wmode=0, wref=1.0, rclip=None):
-    bits = clip.format.bits_per_sample
-
-    if bits != 32:
-        clip = clip.fmtc.bitdepth(bits=32)
-        if rclip is not None:
-            rclip = rclip.fmtc.bitdepth(bits=32)
-
-    clip = clip.nlm_ispc.NLMeans(d, a, s, h, channels, wmode, wref, rclip)
-
-    if bits != 32:
-        cilp = clip.fmtc.bitdepth(bits=bits)
-
-    return clip
-```
+`core.nlm_ispc.NLMeans(clip clip[, int d = 1, int a = 2, int s = 4, float h = 1.2, string channels = "AUTO", int wmode = 0, float wref = 1.0f, clip rclip = None])`
 
 ## Compilation
 [ISPC](https://github.com/ispc/ispc) is required.
