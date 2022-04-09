@@ -13,7 +13,6 @@
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
-#include <vector>
 
 #include <VapourSynth.h>
 #include <VSHelper.h>
@@ -735,11 +734,17 @@ static const VSFrameRef *VS_CC nlmGetFrame(
     const auto & ref_node = d->ref_node ? d->ref_node : d->node;
     auto ref_frame = vsapi->getFrameFilter(n, ref_node, frameCtx);
 
-    // no need to handle subsampling
-    int width = d->vi->width;
-    int height = d->vi->height;
     int bits = d->vi->format->bitsPerSample;
-    int stride = vsapi->getStride(ref_frame, 0) / d->vi->format->bytesPerSample;
+    int width, height, stride; // dimensions of the plane to be processed, not the video dimension
+    if (channels == ChannelMode::UV) {
+        width = d->vi->width >> d->vi->format->subSamplingW;
+        height = d->vi->height >> d->vi->format->subSamplingH;
+        stride = vsapi->getStride(ref_frame, 1) / d->vi->format->bytesPerSample;
+    } else {
+        width = d->vi->width;
+        height = d->vi->height;
+        stride = vsapi->getStride(ref_frame, 0) / d->vi->format->bytesPerSample;
+    }
 
     int size = height * stride; // size of each plane in quad-bytes
     // number of input channels
@@ -903,13 +908,13 @@ static const VSFrameRef *VS_CC nlmGetFrame(
     if (channels == ChannelMode::Y && d->vi->format->numPlanes > 1) {
         const VSFrameRef * fr[3] { nullptr, src_frame, src_frame };
         constexpr int pl[3] { 0, 1, 2 };
-        dst_frame = vsapi->newVideoFrame2(d->vi->format, width, height, fr, pl, src_frame, core);
+        dst_frame = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src_frame, core);
     } else if (channels == ChannelMode::UV && d->vi->format->numPlanes > 1) {
         const VSFrameRef * fr[3] { src_frame, nullptr, nullptr };
         constexpr int pl[3] { 0, 1, 2 };
-        dst_frame = vsapi->newVideoFrame2(d->vi->format, width, height, fr, pl, src_frame, core);
+        dst_frame = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src_frame, core);
     } else {
-        dst_frame = vsapi->newVideoFrame(d->vi->format, width, height, src_frame, core);
+        dst_frame = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src_frame, core);
     }
     std::array dstp { getPtrs(dst_frame, channels, vsapi) };
 
@@ -1041,8 +1046,8 @@ static void VS_CC nlmCreate(
             return set_error("color family must be Gray or YUV for \"channels\" == \"Y\"");
         }
     } else if (d->channels == ChannelMode::UV) {
-        if (d->vi->format->colorFamily != cmYUV || d->vi->format->subSamplingW || d->vi->format->subSamplingH) {
-            return set_error("format must be YUV444 for \"channels\" == \"UV\"");
+        if (d->vi->format->colorFamily != cmYUV) {
+            return set_error("color family must be YUV for \"channels\" == \"UV\"");
         }
     } else if (d->channels == ChannelMode::YUV) {
         if (d->vi->format->colorFamily != cmYUV || d->vi->format->subSamplingW || d->vi->format->subSamplingH) {
