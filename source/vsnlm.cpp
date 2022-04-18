@@ -497,19 +497,19 @@ static inline void nlmAccumulation(
     if (bits == 32) {
         nlmAccumulationDispatch_f32(
             weightp, wdstp, max_weightp,
-            castPtrs<const float>(srcp_bwd), castPtrs<const float>(srcp_bwd), temp_bwd, temp_bwd,
+            castPtrs<const float>(srcp_bwd), castPtrs<const float>(srcp_fwd), temp_bwd, temp_fwd,
             offset_x, offset_y, width, height, stride, channels
         );
     } else if (bits <= 8) {
         nlmAccumulationDispatch_u8(
             weightp, wdstp, max_weightp,
-            castPtrs<const uint8_t>(srcp_bwd), castPtrs<const uint8_t>(srcp_bwd), temp_bwd, temp_bwd,
+            castPtrs<const uint8_t>(srcp_bwd), castPtrs<const uint8_t>(srcp_fwd), temp_bwd, temp_fwd,
             offset_x, offset_y, width, height, stride, channels
         );
     } else if (bits <= 16) {
         nlmAccumulationDispatch_u16(
             weightp, wdstp, max_weightp,
-            castPtrs<const uint16_t>(srcp_bwd), castPtrs<const uint16_t>(srcp_bwd), temp_bwd, temp_bwd,
+            castPtrs<const uint16_t>(srcp_bwd), castPtrs<const uint16_t>(srcp_fwd), temp_bwd, temp_fwd,
             offset_x, offset_y, width, height, stride, channels
         );
     } else {
