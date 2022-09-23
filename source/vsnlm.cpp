@@ -1076,9 +1076,8 @@ static void VS_CC nlmCreate(
         }
     }
 
-    VSCoreInfo core_info;
-    vsapi->getCoreInfo2(core, &core_info);
-    d->workspaces.reserve(core_info.numThreads);
+    const VSCoreInfo *core_info = vsapi->getCoreInfo(core);
+    d->workspaces.reserve(core_info->numThreads);
 
     vsapi->createFilter(
         in, out,
