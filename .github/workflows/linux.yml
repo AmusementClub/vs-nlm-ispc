@@ -10,21 +10,16 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
-    - name: Setup GCC
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y g++-11
-
     - name: Download ISPC
       run: |
-        curl -s -o ispc.tar.gz -LJO https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-linux.tar.gz
+        curl -s -o ispc.tar.gz -LJO https://github.com/ispc/ispc/releases/download/v1.20.0/ispc-v1.20.0-linux.tar.gz
         tar -xzf ispc.tar.gz
         mv ispc-*/ ispc/
 
@@ -40,13 +35,12 @@ jobs:
     - name: Configure
       run: cmake -S . -B build -G Ninja -LA
         -D CMAKE_BUILD_TYPE=Release
+        -D CMAKE_CXX_COMPILER=g++-12
         -D CMAKE_CXX_FLAGS="-Wall"
         -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc"
         -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8"
         -D CMAKE_ISPC_FLAGS="--opt=fast-math"
         -D VS_INCLUDE_DIR="`pwd`/vapoursynth/include"
-      env:
-        CXX: g++-11
 
     - name: Build
       run: cmake --build build --verbose
@@ -55,7 +49,7 @@ jobs:
       run: cmake --install build --prefix install
 
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       if: false
       with:
         name: Linux-x64
