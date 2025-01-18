@@ -1,0 +1,56 @@
+name: Build (Linux, ARM64)
+
+on:
+  push:
+    paths:
+      - 'source/nlm.ispc'
+      - 'source/vsnlm.cpp'
+      - '.github/workflows/linux-arm64.yml'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download ISPC
+      run: |
+        curl -s -o ispc.tar.gz -LJO https://github.com/ispc/ispc/releases/download/v1.25.3/ispc-v1.25.3-linux.aarch64.tar.gz
+        tar -xzf ispc.tar.gz
+        mv ispc-*/ ispc/
+
+    - name: Download VapourSynth headers
+      run: |
+        wget -q -O vs.zip https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R57.zip
+        unzip -q vs.zip
+        mv vapoursynth*/ vapoursynth
+
+    - name: Setup Ninja
+      run: pip install ninja
+
+    - name: Configure
+      run: cmake -S . -B build -G Ninja -LA
+        -D CMAKE_BUILD_TYPE=Release
+        -D CMAKE_CXX_FLAGS="-Wall"
+        -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc"
+        -D CMAKE_ISPC_INSTRUCTION_SETS="neon-i32x4"
+        -D CMAKE_ISPC_FLAGS="--opt=fast-math"
+        -D VS_INCLUDE_DIR="`pwd`/vapoursynth/include"
+
+    - name: Build
+      run: cmake --build build --verbose
+
+    - name: Install
+      run: cmake --install build --prefix install
+
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      if: false
+      with:
+        name: Linux-x64
+        path: install/lib/*.so
+
