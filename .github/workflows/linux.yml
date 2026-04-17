@@ -3,55 +3,73 @@ name: Build (Linux)
 on:
   push:
     paths:
-      - 'source/nlm.ispc'
-      - 'source/vsnlm.cpp'
-      - '.github/workflows/linux.yml'
+      - "source/**"
+      - ".github/workflows/linux.yml"
+      - "CMakeLists.txt"
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-24.04
+            ispc_suffix: linux.tar.gz
+            instruction_sets: "sse2-i32x4;avx1-i32x4;avx2-i32x8"
+            cxx_compiler: g++-12
+            ispc_version: "v1.20.0"
+          - arch: arm64
+            os: ubuntu-24.04-arm
+            ispc_suffix: linux.aarch64.tar.gz
+            instruction_sets: "neon-i32x4"
+            cxx_compiler: g++
+            ispc_version: "v1.25.3"
+
+    runs-on: ${{ matrix.os }}
+    name: Linux (${{ matrix.arch }})
+
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-    - name: Download ISPC
-      run: |
-        curl -s -o ispc.tar.gz -LJO https://github.com/ispc/ispc/releases/download/v1.20.0/ispc-v1.20.0-linux.tar.gz
-        tar -xzf ispc.tar.gz
-        mv ispc-*/ ispc/
+      - name: Download ISPC
+        run: |
+          curl -s -o ispc.tar.gz -LJO "https://github.com/ispc/ispc/releases/download/${{ matrix.ispc_version }}/ispc-${{ matrix.ispc_version }}-${{ matrix.ispc_suffix }}"
+          tar -xzf ispc.tar.gz
+          mv ispc-*/ ispc/
 
-    - name: Download VapourSynth headers
-      run: |
-        wget -q -O vs.zip https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R57.zip
-        unzip -q vs.zip
-        mv vapoursynth*/ vapoursynth
+      - name: Download VapourSynth headers
+        run: |
+          wget -q -O vs.zip https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R57.zip
+          unzip -q vs.zip
+          mv vapoursynth*/ vapoursynth
 
-    - name: Setup Ninja
-      run: pip install ninja
+      - name: Setup Ninja
+        run: pip install ninja
 
-    - name: Configure
-      run: cmake -S . -B build -G Ninja -LA
-        -D CMAKE_BUILD_TYPE=Release
-        -D CMAKE_CXX_COMPILER=g++-12
-        -D CMAKE_CXX_FLAGS="-Wall"
-        -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc"
-        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8"
-        -D CMAKE_ISPC_FLAGS="--opt=fast-math"
-        -D VS_INCLUDE_DIR="`pwd`/vapoursynth/include"
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja -LA
+          -D CMAKE_BUILD_TYPE=Release
+          -D CMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }}
+          -D CMAKE_CXX_FLAGS="-Wall"
+          -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc"
+          -D CMAKE_ISPC_INSTRUCTION_SETS="${{ matrix.instruction_sets }}"
+          -D CMAKE_ISPC_FLAGS="--opt=fast-math"
+          -D VS_INCLUDE_DIR="$(pwd)/vapoursynth/include"
 
-    - name: Build
-      run: cmake --build build --verbose
+      - name: Build
+        run: cmake --build build --verbose
 
-    - name: Install
-      run: cmake --install build --prefix install
+      - name: Install
+        run: cmake --install build --prefix install
 
-    - name: Upload
-      uses: actions/upload-artifact@v3
-      if: false
-      with:
-        name: Linux-x64
-        path: install/lib/*.so
-
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: Linux-${{ matrix.arch }}
+          path: install/lib/*.so
