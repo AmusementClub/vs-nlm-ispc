@@ -71,7 +71,7 @@ jobs:
     - name: Compress artifact for release
       if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
       run: |
-        cd artifact
+        cd install
         7z a -t7z -mx=7 ../vs-nlm-ispc-windows-x64.${{ inputs.tag }}.7z .
 
     - name: Upload release assets
