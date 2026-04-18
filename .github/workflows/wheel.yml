@@ -38,6 +38,21 @@ jobs:
       - name: Build wheel
         run: uv build --wheel
 
+      - name: Repair wheel (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          uvx --with patchelf auditwheel repair --strip dist/*.whl -w repaired_wheels
+          rm dist/*.whl
+          mv repaired_wheels/*.whl dist/
+
+      - name: Repair wheel (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          uvx --from delocate delocate-wheel -v dist/*.whl -w repaired_wheels
+          rm dist/*.whl
+          mv repaired_wheels/*.whl dist/
+          uvx --from delocate delocate-listdeps dist/*.whl
+
       - name: Upload wheel
         uses: actions/upload-artifact@v7
         with:
