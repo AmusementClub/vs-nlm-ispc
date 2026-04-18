@@ -20,5 +20,5 @@ class CustomHook(BuildHookInterface[Any]):
         build_data["tag"] = f"py3-none-{next(tags.platform_tags())}"
         self.target_dir.mkdir(parents=True, exist_ok=True)
         for file_path in self.source_dir.glob("*"):
-            if file_path.is_file() and file_path.suffix in [".dll", ".so"]:
+            if file_path.is_file() and file_path.suffix in [".dll", ".so", ".dylib"]:
                 shutil.copy2(file_path, self.target_dir)

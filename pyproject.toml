@@ -37,7 +37,11 @@ include = ["source", "CMakeLists.txt"]
 
 [tool.hatch.build.targets.wheel]
 include = ["vapoursynth/plugins"]
-artifacts = ["vapoursynth/plugins/**/*.so", "vapoursynth/plugins/**/*.dll"]
+artifacts = [
+    "vapoursynth/plugins/**/*.so",
+    "vapoursynth/plugins/**/*.dll",
+    "vapoursynth/plugins/**/*.dylib",
+]
 
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build.py"

@@ -1,0 +1,91 @@
+name: Build (macOS)
+
+on:
+  push:
+    paths:
+      - "source/**"
+      - ".github/workflows/macos.yml"
+      - "CMakeLists.txt"
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: macos-26-intel
+            instruction_sets: "sse2-i32x4;avx1-i32x4;avx2-i32x8;avx512skx-i32x16"
+          - arch: arm64
+            os: macos-26
+            instruction_sets: "neon-i32x4"
+
+    runs-on: ${{ matrix.os }}
+    name: macOS (${{ matrix.arch }})
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download ISPC
+        run: |
+          curl -s -o ispc.tar.gz -LJO "https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-macOS.universal.tar.gz"
+          tar -xzf ispc.tar.gz
+          mv ispc-*/ ispc/
+
+      - name: Download VapourSynth headers
+        run: |
+          curl -s -o vs.zip -L https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R57.zip
+          unzip -q vs.zip
+          mv vapoursynth*/ vapoursynth
+
+      - name: Setup Ninja
+        run: pip install ninja
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja -LA
+          -D CMAKE_BUILD_TYPE=Release
+          -D CMAKE_CXX_COMPILER="clang++"
+          -D CMAKE_CXX_FLAGS="-Wall"
+          -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc"
+          -D CMAKE_ISPC_INSTRUCTION_SETS="${{ matrix.instruction_sets }}"
+          -D CMAKE_ISPC_FLAGS="--opt=fast-math"
+          -D VS_INCLUDE_DIR="$(pwd)/vapoursynth/include"
+          -D CMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOSX_DEPLOYMENT_TARGET }}
+
+      - name: Build
+        run: cmake --build build --verbose
+
+      - name: Install
+        run: cmake --install build --prefix install
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: nlm-ispc-macOS-${{ matrix.arch }}
+          path: install/lib/*.dylib
+
+  build-wheel:
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            os: macos-26-intel
+          - arch: arm64
+            os: macos-26
+    name: Package Wheel (macOS - ${{ matrix.arch }})
+    needs: build
+    uses: ./.github/workflows/wheel.yml
+    with:
+      os: ${{ matrix.os }}
+      artifact_name: nlm-ispc-macOS-${{ matrix.arch }}
+      artifact_path: install/lib
+      build_sdist: false

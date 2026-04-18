@@ -34,9 +34,13 @@ jobs:
     with:
       tag: ${{ github.event.inputs.tag }}
 
+  build-macos:
+    needs: tag
+    uses: ./.github/workflows/macos.yml
+
   publish:
     name: Publish to PyPI & GitHub Release
-    needs: [tag, build-linux, build-windows]
+    needs: [tag, build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     if: github.event.inputs.tag != ''
 
