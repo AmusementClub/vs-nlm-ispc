@@ -7,16 +7,16 @@ on:
       - 'source/vsnlm.cpp'
       - '.github/workflows/windows.yml'
   workflow_dispatch:
+  workflow_call:
     inputs:
       tag:
-        description: 'which tag to upload to'
+        type: string
+        required: false
         default: ''
 
 jobs:
   build-windows:
-    runs-on: windows-2022
-    outputs:
-      runID: ${{ steps.output.outputs.runID }}
+    runs-on: windows-2025-vs2026
 
     defaults:
       run:
@@ -24,7 +24,7 @@ jobs:
 
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
 
     - name: Download ISPC
       run: |
-        curl -s -o ispc.zip -LJO https://github.com/ispc/ispc/releases/download/v1.20.0/ispc-v1.20.0-windows.zip
+        curl -s -o ispc.zip -LJO https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-windows.zip
         unzip -q ispc.zip
         mv ispc-*/ ispc/
         tree ispc
@@ -53,40 +53,41 @@ jobs:
         -D CMAKE_CXX_FLAGS="-Wall"
         -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc.exe"
         -D CMAKE_ISPC_FLAGS="--opt=fast-math"
-        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8"
+        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8;avx512skx-i32x16"
         -D CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
     - name: Build
       run: cmake --build build --verbose
 
     - name: Install
-      run: |
-        cmake --install build --prefix install
-        mkdir artifact
-        copy install\bin\vsnlm_ispc.dll artifact\
+      run: cmake --install build --prefix install
 
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
-        name: Windows-x64
-        path: artifact
-
-    - name: Describe
-      run: git describe --tags --long
+        name: nlm-ispc-Windows-x64
+        path: install/bin/*.dll
 
     - name: Compress artifact for release
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+      if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
       run: |
         cd artifact
-        7z a -t7z -mx=7 ../vs-nlm-ispc-windows-x64.${{ github.event.inputs.tag }}.7z .
+        7z a -t7z -mx=7 ../vs-nlm-ispc-windows-x64.${{ inputs.tag }}.7z .
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+    - name: Upload release assets
+      if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+      uses: actions/upload-artifact@v7
       with:
-        tag_name: ${{ github.event.inputs.tag }}
-        files: vs-nlm-ispc-windows-x64.${{ github.event.inputs.tag }}.7z
-        fail_on_unmatched_files: true
-        generate_release_notes: false
-        prerelease: true
+        name: release-assets
+        path: |
+          vs-nlm-ispc-windows-x64.${{ inputs.tag }}.7z
 
+  build-wheel:
+    name: Package Wheel (Windows)
+    needs: build-windows
+    uses: ./.github/workflows/wheel.yml
+    with:
+      os: windows-2025-vs2026
+      artifact_name: nlm-ispc-Windows-x64
+      artifact_path: install/bin
+      build_sdist: false
