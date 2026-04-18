@@ -16,7 +16,7 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
 
     defaults:
       run:
@@ -39,7 +39,7 @@ jobs:
 
     - name: Download ISPC
       run: |
-        curl -s -o ispc.zip -LJO https://github.com/ispc/ispc/releases/download/v1.20.0/ispc-v1.20.0-windows.zip
+        curl -s -o ispc.zip -LJO https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-windows.zip
         unzip -q ispc.zip
         mv ispc-*/ ispc/
         tree ispc
@@ -53,7 +53,7 @@ jobs:
         -D CMAKE_CXX_FLAGS="-Wall"
         -D CMAKE_ISPC_COMPILER="$(pwd)/ispc/bin/ispc.exe"
         -D CMAKE_ISPC_FLAGS="--opt=fast-math"
-        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8"
+        -D CMAKE_ISPC_INSTRUCTION_SETS="sse2-i32x4;avx1-i32x4;avx2-i32x8;avx512skx-i32x16"
         -D CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
     - name: Build
@@ -87,7 +87,7 @@ jobs:
     needs: build-windows
     uses: ./.github/workflows/wheel.yml
     with:
-      os: windows-2022
+      os: windows-2025-vs2026
       artifact_name: nlm-ispc-Windows-x64
       artifact_path: install/bin
       build_sdist: false

@@ -18,15 +18,13 @@ jobs:
           - arch: x64
             os: ubuntu-24.04
             ispc_suffix: linux.tar.gz
-            instruction_sets: "sse2-i32x4;avx1-i32x4;avx2-i32x8"
+            instruction_sets: "sse2-i32x4;avx1-i32x4;avx2-i32x8;avx512skx-i32x16"
             cxx_compiler: g++-12
-            ispc_version: "v1.20.0"
           - arch: arm64
             os: ubuntu-24.04-arm
             ispc_suffix: linux.aarch64.tar.gz
             instruction_sets: "neon-i32x4"
             cxx_compiler: g++
-            ispc_version: "v1.25.3"
 
     runs-on: ${{ matrix.os }}
     name: Linux (${{ matrix.arch }})
@@ -39,7 +37,7 @@ jobs:
 
       - name: Download ISPC
         run: |
-          curl -s -o ispc.tar.gz -LJO "https://github.com/ispc/ispc/releases/download/${{ matrix.ispc_version }}/ispc-${{ matrix.ispc_version }}-${{ matrix.ispc_suffix }}"
+          curl -s -o ispc.tar.gz -LJO "https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-${{ matrix.ispc_suffix }}"
           tar -xzf ispc.tar.gz
           mv ispc-*/ ispc/
 
