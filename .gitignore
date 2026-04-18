@@ -1,0 +1,11 @@
+build/
+ispc/
+vapoursynth/
+
+# Python
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+.venv/
+dist/
+uv.lock

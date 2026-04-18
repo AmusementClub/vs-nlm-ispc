@@ -7,6 +7,7 @@ on:
       - ".github/workflows/linux.yml"
       - "CMakeLists.txt"
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
@@ -71,5 +72,22 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
-          name: Linux-${{ matrix.arch }}
+          name: nlm-ispc-Linux-${{ matrix.arch }}
           path: install/lib/*.so
+
+  build-wheel:
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-24.04
+          - arch: arm64
+            os: ubuntu-24.04-arm
+    name: Package Wheel (Linux - ${{ matrix.arch }})
+    needs: build
+    uses: ./.github/workflows/wheel.yml
+    with:
+      os: ${{ matrix.os }}
+      artifact_name: nlm-ispc-Linux-${{ matrix.arch }}
+      artifact_path: install/lib
+      build_sdist: false

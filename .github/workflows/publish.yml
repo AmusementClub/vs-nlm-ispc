@@ -1,0 +1,83 @@
+name: Publish release & PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'which tag to upload to'
+        default: ''
+
+jobs:
+  tag:
+    name: Create Tag/Release
+    runs-on: ubuntu-latest
+    if: github.event.inputs.tag != ''
+    outputs:
+      tag: ${{ github.event.inputs.tag }}
+    permissions:
+      contents: write
+    steps:
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          generate_release_notes: false
+          prerelease: true
+
+  build-linux:
+    needs: tag
+    uses: ./.github/workflows/linux.yml
+
+  build-windows:
+    needs: tag
+    uses: ./.github/workflows/windows.yml
+    with:
+      tag: ${{ github.event.inputs.tag }}
+
+  publish:
+    name: Publish to PyPI & GitHub Release
+    needs: [tag, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.tag != ''
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vapoursynth-nlm-ispc
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+    - name: Download wheels
+      uses: actions/download-artifact@v8
+      with:
+        pattern: wheel-*
+        path: dist
+        merge-multiple: true
+
+    - name: Download sdist
+      uses: actions/download-artifact@v8
+      with:
+        name: sdist
+        path: dist
+        merge-multiple: true
+      continue-on-error: true
+
+    - name: Download release assets
+      uses: actions/download-artifact@v8
+      with:
+        name: release-assets
+        path: release-assets
+
+    - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: ${{ github.event.inputs.tag }}
+        files: |
+          dist/*
+          release-assets/*
+        fail_on_unmatched_files: false
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
